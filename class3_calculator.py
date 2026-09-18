@@ -10,6 +10,9 @@ def subtract(a, b):
 def multiply(a, b):
     return a * b
 
+def divide(a, b):
+    return a / b if b != 0
+
 
 def main():
     parser = argparse.ArgumentParser(description="A simple calculator")
@@ -17,7 +20,7 @@ def main():
     parser.add_argument("--b", "-b", type=float, required=True, help="Second number")
     parser.add_argument(
         "--operation", "-op",
-        choices=["add", "subtract", "multiply"],
+        choices=["add", "subtract", "multiply", "divide"],
         default="add",
         help="Operation to perform"
     )
@@ -31,6 +34,9 @@ def main():
 
     elif args.operation == "multiply":
         result = multiply(args.a, args.b)
+
+    elif args.operation == "divide":
+        result = divide(args.a, args.b)
 
     print(f"Result: {result}")
 
