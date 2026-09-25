@@ -10,6 +10,7 @@ Thumbs.db
 # Data files
 *.csv
 *.txt
+!requirements.txt
 data/
 
 # Python caches & virtual envs
