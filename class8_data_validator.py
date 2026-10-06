@@ -4,9 +4,12 @@ logger = logging.getLogger(__name__)
 
 def require_columns(df, required_columns):
     """Check that all required columns exist."""
-    for col in required_columns:
-        if col not in df.columns:
-            logger.error(f"Error: {col} missing from df")
-            raise ValueError(f"Column must be in df")
+    missing = [col for col in require_columns if col not in df.columns]
+    if missing:
+        logger.error(f"{len(missing)} Columns missing")
+        raise ValueError(f"Df must have all required columns")
+        
+    for col in missing:
+        logger.error(f"Missing column: {col}")
 
     return df
