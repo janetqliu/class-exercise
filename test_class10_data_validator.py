@@ -28,3 +28,5 @@ def test_validate_columns_with_missing_column(sample_df):
 
     with pytest.raises(ValueError, match="Missing required columns"):
         validate_columns(sample_df, required_columns=["title", "rating"])
+
+        

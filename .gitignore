@@ -15,6 +15,7 @@ data/
 
 # Python caches & virtual envs
 __pycache__/
+.pytest_cache
 *.pyc
 .venv/
 venv/
