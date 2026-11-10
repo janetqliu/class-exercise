@@ -2,8 +2,8 @@ import sqlite3
 
 import pytest
 from fastapi.testclient import TestClient
-
 import main
+import json
 from check_storage import BookStorage
 
 #The `storage` fixture gives each test a separate temporary database
@@ -14,8 +14,8 @@ def storage(tmp_path):
 #The `client` fixture shows how to connect temporary storage to API tests
 @pytest.fixture
 def client(storage, monkeypatch):
-    #`monkeypatch` makes the API use that test's storage object and restores the original afterward
     monkeypatch.setattr(main, "storage", storage)
+    monkeypatch.setattr(main, "cache", main.BookCache())
     with TestClient(main.app) as test_client:
         yield test_client
 
@@ -37,3 +37,51 @@ def test_failed_replacement_rolls_back(storage):
     reopened = BookStorage(storage.db_path)
     assert reopened.list_books() == before
 
+def test_cache_hit_skips_database(client, monkeypatch):
+    response = client.post("/books", json={"title": "Book A", "price": 12.5})
+    assert response.status_code == 200
+
+    first = client.get("/books", params={"min_price": 0, "limit": 100})
+    assert first.status_code == 200
+
+    def fail_if_called(*args, **kwargs):
+        pytest.fail("A cache hit should not query the database")
+
+    monkeypatch.setattr(main.storage, "list_books", fail_if_called)
+
+    second = client.get("/books", params={"min_price": 0, "limit": 100})
+    assert second.status_code == 200
+    assert second.json() == first.json()
+
+def test_add_book_invalidates_cache(client):
+    response = client.post("/books", json={"title": "Book A", "price": 12.5})
+    assert response.status_code == 200
+
+    response = client.get("/books", params={"min_price": 0, "limit": 1})
+    response2 = client.get("/books", params={"min_price": 0, "limit": 100})
+    assert response.status_code == 200
+    assert response2.status_code == 200
+
+    assert main.cache.get(0, 1) is not None
+    assert main.cache.get(0, 100) is not None
+    assert main.cache.get(0, 1) == response.json()
+    assert main.cache.get(0, 100) == response2.json()
+
+    response = client.get("/books", params={"min_price": 0, "limit": 100})
+    assert response.status_code == 200
+    assert response.json() == response2.json()
+
+    response = client.post("/books", json={"title": "Book B", "price": 20.0})
+    assert response.status_code == 200
+    assert main.cache.get(0, 1) is None
+    assert main.cache.get(0, 100) is None
+
+    response = client.get("/books", params={"min_price": 0, "limit": 100})
+    assert response.status_code == 200
+    books = response.json()
+
+    titles = [b["title"] for b in books]
+    prices = [b["price"] for b in books]
+    assert titles == ["Book B", "Book A"]
+    assert prices == sorted(prices, reverse=True)
+    assert main.cache.get(0, 100) == books
